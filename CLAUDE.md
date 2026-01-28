@@ -288,6 +288,5 @@ Detected via `functions.sh:148-187`:
 
 ## Known Issues
 
-- `10_score/rollout.sh:20,26`: Variable typo `FAILD_QUERY` (should be `FAILED_QUERY`)
 - Cloud mode: No gpconfig access, GUCs must be set at session level
 - Data maintenance tests (TDM) not implemented; v3.2.0 scores are simulated
