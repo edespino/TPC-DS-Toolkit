@@ -236,6 +236,46 @@ export RUN_SINGLE_USER_REPORTS="true"
 
 ---
 
+### Future Optimization: S3-based Parallel Loading
+
+**Current limitation**: Cloud mode uses `\COPY` which is single-threaded per table.
+
+**Potential optimization**: Use `datalake_fdw` to load from S3, enabling parallel reads across warehouse nodes.
+
+```
+Current (COPY):     Client ──▶ Coordinator ──▶ Storage     (single stream)
+S3-based (FDW):     Client ──▶ S3 ◀── All Warehouse Nodes  (parallel)
+```
+
+**Open question - FDW parallel execution and data duplication**:
+
+When using `datalake_fdw` with `mpp_execute 'all segments'`, each segment reads from S3. Coordination mechanism to prevent duplicate loading is unclear:
+
+| Scenario | Behavior | Result |
+|----------|----------|--------|
+| Coordinated | Each segment reads distinct files/rows | Correct |
+| Uncoordinated | Each segment reads ALL files | N× duplication |
+
+**Verification before implementation**:
+
+```sql
+-- Create test foreign table pointing to S3 directory
+CREATE FOREIGN TABLE test_s3 (id int, val text)
+  SERVER s3_server
+  OPTIONS (filePath '/bucket/test/', format 'text');
+
+-- Check if row count matches expected (not N× expected)
+SELECT COUNT(*) FROM test_s3;
+```
+
+**Safe implementation options**:
+
+1. **Coordinator-only FDW**: No duplication, but no parallelism
+2. **Iceberg format**: Built-in parallel coordination via manifests
+3. **Segment-specific paths**: Generate files per segment count
+
+---
+
 ### Troubleshooting
 
 | Issue | Cause | Mitigation |
