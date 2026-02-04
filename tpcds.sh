@@ -9,6 +9,71 @@ source ./${VARS_FILE}
 # shellcheck source=functions.sh
 source ./${FUNCTIONS_FILE}
 
+# Handle single step execution: ./tpcds.sh step <step_name>
+# This overrides variables without modifying the file
+if [[ "$1" == "step" && -n "$2" ]]; then
+    # Disable ALL steps first
+    export RUN_COMPILE_TPCDS="false"
+    export RUN_GEN_DATA="false"
+    export RUN_INIT="false"
+    export RUN_DDL="false"
+    export RUN_LOAD="false"
+    export RUN_ANALYZE="false"
+    export RUN_SQL="false"
+    export RUN_SINGLE_USER_REPORTS="false"
+    export RUN_MULTI_USER="false"
+    export RUN_MULTI_USER_REPORTS="false"
+    export RUN_SCORE="false"
+
+    # Enable ONLY the requested step
+    step_name="$2"
+    case $step_name in
+        compile)    export RUN_COMPILE_TPCDS="true" ;;
+        gen_data)   export RUN_GEN_DATA="true" ;;
+        init)       export RUN_INIT="true" ;;
+        ddl)        export RUN_DDL="true" ;;
+        load)       export RUN_LOAD="true" ;;
+        analyze)    export RUN_ANALYZE="true" ;;
+        sql)        export RUN_SQL="true" ;;
+        reports)    export RUN_SINGLE_USER_REPORTS="true" ;;
+        multi)      export RUN_MULTI_USER="true" ;;
+        multi_reports) export RUN_MULTI_USER_REPORTS="true" ;;
+        score)      export RUN_SCORE="true" ;;
+        *)
+            echo "Unknown step: $step_name"
+            echo "Valid steps: compile, gen_data, init, ddl, load, analyze, sql, reports, multi, multi_reports, score"
+            exit 1
+            ;;
+    esac
+    echo "Running single step: $step_name"
+fi
+
+# Auto-detect architecture and setup TPC-DS tools
+TOOLS_DIR="$(dirname "${BASH_SOURCE[0]}")/00_compile_tpcds/tools"
+if [[ -d "$TOOLS_DIR" ]]; then
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64)  SUFFIX="x86" ;;
+        aarch64) SUFFIX="arm" ;;
+        arm64)   SUFFIX="arm" ;;
+        *)       SUFFIX="x86" ;;  # Default to x86
+    esac
+
+    # Setup dsdgen if not already done
+    if [[ ! -x "$TOOLS_DIR/dsdgen" && -f "$TOOLS_DIR/dsdgen.${SUFFIX}" ]]; then
+        cp "$TOOLS_DIR/dsdgen.${SUFFIX}" "$TOOLS_DIR/dsdgen"
+        chmod +x "$TOOLS_DIR/dsdgen"
+        echo "Setup: dsdgen (${ARCH})"
+    fi
+
+    # Setup dsqgen if not already done
+    if [[ ! -x "$TOOLS_DIR/dsqgen" && -f "$TOOLS_DIR/dsqgen.${SUFFIX}" ]]; then
+        cp "$TOOLS_DIR/dsqgen.${SUFFIX}" "$TOOLS_DIR/dsqgen"
+        chmod +x "$TOOLS_DIR/dsqgen"
+        echo "Setup: dsqgen (${ARCH})"
+    fi
+fi
+
 TPC_DS_DIR=$(get_pwd ${BASH_SOURCE[0]})
 export TPC_DS_DIR
 
