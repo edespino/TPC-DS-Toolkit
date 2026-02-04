@@ -63,7 +63,7 @@ for p in $(seq 1 99); do
   if [ "${LOG_DEBUG}" == "true" ]; then
     log_time "Creating: ${TPC_DS_DIR}/06_sql/${filename}"
   fi
-  printf "set role ${BENCH_ROLE};\nset search_path=${DB_SCHEMA_NAME},public;\n" > ${TPC_DS_DIR}/06_sql/${filename}
+  printf "set role \"%s\";\nset search_path=%s,public;\n" "${BENCH_ROLE}" "${DB_SCHEMA_NAME}" > ${TPC_DS_DIR}/06_sql/${filename}
 
   # Set optimizer settings
   for o in $(cat ${TPC_DS_DIR}/01_gen_data/optimizer.txt); do
