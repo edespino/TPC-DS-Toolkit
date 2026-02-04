@@ -221,12 +221,12 @@ if [ "${DB_CURRENT_USER}" != "${BENCH_ROLE}" ]; then
   if [ "${LOG_DEBUG}" == "true" ]; then
     log_time "Current user ${DB_CURRENT_USER} does not match BENCH_ROLE ${BENCH_ROLE}."
   fi
-  DropRoleDenp="drop owned by ${BENCH_ROLE} cascade"
-  DropRole="DROP ROLE IF EXISTS ${BENCH_ROLE}"
-  CreateRole="CREATE ROLE ${BENCH_ROLE}"
-  GrantRole="GRANT ${BENCH_ROLE} TO ${DB_CURRENT_USER}"
-  GrantSchemaPrivileges="GRANT ALL PRIVILEGES ON SCHEMA ${DB_SCHEMA_NAME} TO ${BENCH_ROLE}"
-  GrantTablePrivileges="GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${DB_SCHEMA_NAME} TO ${BENCH_ROLE}"
+  DropRoleDenp="drop owned by \"${BENCH_ROLE}\" cascade"
+  DropRole="DROP ROLE IF EXISTS \"${BENCH_ROLE}\""
+  CreateRole="CREATE ROLE \"${BENCH_ROLE}\""
+  GrantRole="GRANT \"${BENCH_ROLE}\" TO \"${DB_CURRENT_USER}\""
+  GrantSchemaPrivileges="GRANT ALL PRIVILEGES ON SCHEMA ${DB_SCHEMA_NAME} TO \"${BENCH_ROLE}\""
+  GrantTablePrivileges="GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${DB_SCHEMA_NAME} TO \"${BENCH_ROLE}\""
   if [ "${LOG_DEBUG}" == "true" ]; then
     log_time "rm -f ${PWD}/GrantTablePrivileges.sql"
   fi

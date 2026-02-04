@@ -1,6 +1,9 @@
+# SynxDB Cloud options (set warehouse context for all psql connections)
+export PGOPTIONS="${PGOPTIONS:--c warehouse=wh-1}"
+
 # Environment options
 ## ADMIN_USER should be set to the OS user that executes this toolkit
-export ADMIN_USER="gpadmin"
+export ADMIN_USER="${ADMIN_USER:-gpadmin}"
 ## BENCH_ROLE should be set to the database user that will be used to run the benchmark
 export BENCH_ROLE="dsbench"
 ## Default port is configured via the env setting of $PGPORT for user $ADMIN_USER
@@ -25,10 +28,10 @@ export DB_SCHEMA_NAME="tpcds"
 
 # Step options
 ## step 00_compile_tpcds
-export RUN_COMPILE_TPCDS="true"
+export RUN_COMPILE_TPCDS="${RUN_COMPILE_TPCDS:-true}"
 
 ## step 01_gen_data
-export RUN_GEN_DATA="true"
+export RUN_GEN_DATA="${RUN_GEN_DATA:-true}"
 # To run another TPC-DS with a different BENCH_ROLE using existing tables and data,
 # the queries need to be regenerated with the new role.
 # Change BENCH_ROLE and set RUN_GEN_DATA to true and GEN_NEW_DATA to false.
@@ -46,32 +49,32 @@ export USING_CUSTOM_GEN_PATH_IN_LOCAL_MODE="false"
 
 
 ## step 02_init
-export RUN_INIT="true"
+export RUN_INIT="${RUN_INIT:-true}"
 
 ## step 03_ddl
 ## To run another TPC-DS with a different BENCH_ROLE using existing tables and data,
 ## change BENCH_ROLE and set RUN_DDL to true and DROP_EXISTING_TABLES to false.
 ## DROP_EXISTING_TABLES only takes effect when RUN_DDL is true, and the default setting
 ## should be true under normal circumstances.
-export RUN_DDL="true"
+export RUN_DDL="${RUN_DDL:-true}"
 export DROP_EXISTING_TABLES="true"
 ## Set to true to use random distribution for test tables.
 export RANDOM_DISTRIBUTION="false"
 
 ## step 04_load
-export RUN_LOAD="true"
+export RUN_LOAD="${RUN_LOAD:-true}"
 ### How many parallel processes to load data, default is 2, max is 24.
 export LOAD_PARALLEL="2"
 ### Truncate existing tables before loading data
 export TRUNCATE_TABLES="true"
 
 ## step 05_analyze
-export RUN_ANALYZE="true"
+export RUN_ANALYZE="${RUN_ANALYZE:-true}"
 ### How many parallel processes to analyze tables, default is 5, max is 24.
 export RUN_ANALYZE_PARALLEL="5"
 
 ## step 06_sql
-export RUN_SQL="true"
+export RUN_SQL="${RUN_SQL:-true}"
 ### Set statement memory limit for each query execution, default is 1GB.
 export STATEMENT_MEM="1GB"
 ## Set to true to generate queries for the TPC-DS benchmark.
@@ -80,19 +83,19 @@ export RUN_QGEN="true"
 export QUERY_INTERVAL="0"
 
 ## step 07_single_user_reports
-export RUN_SINGLE_USER_REPORTS="true"
+export RUN_SINGLE_USER_REPORTS="${RUN_SINGLE_USER_REPORTS:-true}"
 
 ## step 08_multi_user
-export RUN_MULTI_USER="false"
+export RUN_MULTI_USER="${RUN_MULTI_USER:-false}"
 ### Set statement memory limit for each query execution in multi-user mode, default is 1GB.
 export STATEMENT_MEM_MULTI_USER="1GB"
 export RUN_MULTI_USER_QGEN="true"
 
 ## step 09_multi_user_reports
-export RUN_MULTI_USER_REPORTS="false"
+export RUN_MULTI_USER_REPORTS="${RUN_MULTI_USER_REPORTS:-false}"
 
 ## step 10_score
-export RUN_SCORE="false"
+export RUN_SCORE="${RUN_SCORE:-false}"
 
 # Misc options
 ## Set to 1 if you want the progress to stop when error occurs during single and multi user tests.

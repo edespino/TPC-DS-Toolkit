@@ -10,8 +10,8 @@ log_time "Step ${step} started"
 init_log ${step}
 
 if [ "${DB_CURRENT_USER}" != "${BENCH_ROLE}" ]; then
-  GrantSchemaPrivileges="GRANT ALL PRIVILEGES ON SCHEMA ${DB_SCHEMA_NAME} TO ${BENCH_ROLE}"
-  GrantTablePrivileges="GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${DB_SCHEMA_NAME} TO ${BENCH_ROLE}"
+  GrantSchemaPrivileges="GRANT ALL PRIVILEGES ON SCHEMA ${DB_SCHEMA_NAME} TO \"${BENCH_ROLE}\""
+  GrantTablePrivileges="GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${DB_SCHEMA_NAME} TO \"${BENCH_ROLE}\""
   if [ "${LOG_DEBUG}" == "true" ]; then
     log_time "Grant schema privileges to role ${BENCH_ROLE}"
   fi

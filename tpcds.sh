@@ -4,13 +4,8 @@ set -e
 VARS_FILE="tpcds_variables.sh"
 FUNCTIONS_FILE="functions.sh"
 
-# shellcheck source=tpcds_variables.sh
-source ./${VARS_FILE}
-# shellcheck source=functions.sh
-source ./${FUNCTIONS_FILE}
-
 # Handle single step execution: ./tpcds.sh step <step_name>
-# This overrides variables without modifying the file
+# Set env vars BEFORE sourcing so ${VAR:-default} pattern preserves them
 if [[ "$1" == "step" && -n "$2" ]]; then
     # Disable ALL steps first
     export RUN_COMPILE_TPCDS="false"
@@ -47,6 +42,11 @@ if [[ "$1" == "step" && -n "$2" ]]; then
     esac
     echo "Running single step: $step_name"
 fi
+
+# shellcheck source=tpcds_variables.sh
+source ./${VARS_FILE}
+# shellcheck source=functions.sh
+source ./${FUNCTIONS_FILE}
 
 # Auto-detect architecture and setup TPC-DS tools
 TOOLS_DIR="$(dirname "${BASH_SOURCE[0]}")/00_compile_tpcds/tools"

@@ -1,6 +1,10 @@
 #!/bin/bash
 
 set -e
+
+# Check for required commands
+command -v find >/dev/null 2>&1 || { echo "ERROR: 'find' command not found. Install findutils: dnf install -y findutils"; exit 1; }
+
 PWD=$(get_pwd ${BASH_SOURCE[0]})
 
 ################################################################################
