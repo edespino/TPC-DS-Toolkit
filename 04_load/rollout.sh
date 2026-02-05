@@ -83,7 +83,53 @@ function start_gpfdist() {
   wait
 }
 
-if [ "${RUN_MODEL}" == "remote" ]; then
+################################################################################
+####  SynxDB Cloud gpfdist functions  ##########################################
+################################################################################
+
+function start_gpfdist_synxdb() {
+  log_time "Starting gpfdist on segment pods"
+  local pods=$(get_segment_pods)
+  local data_path="${SYNXDB_DATA_PATH}/${GEN_PATH_NAME}"
+  local port="${SYNXDB_GPFDIST_PORT}"
+
+  for pod in ${pods}; do
+    if [ "${LOG_DEBUG}" == "true" ]; then
+      log_time "Starting gpfdist on ${pod}:${port} serving ${data_path}"
+    fi
+    kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
+      bash -c "source /usr/local/elastic-database/cluster_env.sh && \
+               pkill -f 'gpfdist.*${data_path}' 2>/dev/null || true; \
+               mkdir -p ${data_path}/logs; \
+               nohup gpfdist -p ${port} -d ${data_path} > ${data_path}/logs/gpfdist.${port}.log 2>&1 &" &
+  done
+  wait
+  sleep 2  # Allow gpfdist processes to start
+}
+
+function stop_gpfdist_synxdb() {
+  log_time "Stopping gpfdist on segment pods"
+  local pods=$(get_segment_pods)
+  local data_path="${SYNXDB_DATA_PATH}/${GEN_PATH_NAME}"
+
+  for pod in ${pods}; do
+    kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
+      bash -c "pkill -f 'gpfdist.*${data_path}' 2>/dev/null || true" &
+  done
+  wait
+}
+
+################################################################################
+
+if [ "${RUN_MODEL}" == "synxdb-cloud" ]; then
+  # SynxDB Cloud mode: start gpfdist on segment pods via kubectl
+  if [ -z "${SYNXDB_NAMESPACE}" ]; then
+    log_time "ERROR: SYNXDB_NAMESPACE must be set for synxdb-cloud mode"
+    exit 1
+  fi
+  start_gpfdist_synxdb
+
+elif [ "${RUN_MODEL}" == "remote" ]; then
   sh ${PWD}/stop_gpfdist.sh dsgendata
   # Split CUSTOM_GEN_PATH into array of paths to support multiple directories
   IFS=' ' read -ra GEN_PATHS <<< "${CUSTOM_GEN_PATH}"
@@ -303,7 +349,12 @@ if [ "${LOG_DEBUG}" == "true" ]; then
   log_time "Clean up gpfdist"
 fi
 
-if [ "${RUN_MODEL}" == "remote" ]; then
+if [ "${RUN_MODEL}" == "synxdb-cloud" ]; then
+  if [ "${LOG_DEBUG}" == "true" ]; then
+    log_time "Clean up gpfdist on segment pods"
+  fi
+  stop_gpfdist_synxdb
+elif [ "${RUN_MODEL}" == "remote" ]; then
   if [ "${LOG_DEBUG}" == "true" ]; then
     log_time "Clean up gpfdist on client"
   fi

@@ -1,6 +1,16 @@
 # SynxDB Cloud options (set warehouse context for all psql connections)
 export PGOPTIONS="${PGOPTIONS:--c warehouse=wh-1}"
 
+## SynxDB Cloud gpfdist mode settings (only used when RUN_MODEL="synxdb-cloud")
+## Kubernetes namespace where warehouse segments are running
+export SYNXDB_NAMESPACE="${SYNXDB_NAMESPACE:-}"
+## Warehouse name (used to find segment pods, e.g., wh-1 -> wh-1-segment-0, wh-1-segment-1, ...)
+export SYNXDB_WAREHOUSE="${SYNXDB_WAREHOUSE:-wh-1}"
+## Data generation path on segment pods (NVMe mounted at /data)
+export SYNXDB_DATA_PATH="${SYNXDB_DATA_PATH:-/data/tpcds}"
+## gpfdist port for synxdb-cloud mode
+export SYNXDB_GPFDIST_PORT="${SYNXDB_GPFDIST_PORT:-8080}"
+
 # Environment options
 ## ADMIN_USER should be set to the OS user that executes this toolkit
 export ADMIN_USER="${ADMIN_USER:-gpadmin}"
@@ -14,7 +24,8 @@ export BENCH_ROLE="dsbench"
 export PSQL_OPTIONS=""
 
 # Benchmark options
-## Set to "local" to run the benchmark on the COORDINATOR host or "cloud" to run the benchmark from a remote client.
+## Set to "local" to run the benchmark on the COORDINATOR host, "cloud" for COPY-based loading,
+## or "synxdb-cloud" for gpfdist-based parallel loading on SynxDB Cloud segment pods.
 export RUN_MODEL="local"
 ## Set to true to enable more detailed logging for troubleshooting purposes.
 export LOG_DEBUG="false"

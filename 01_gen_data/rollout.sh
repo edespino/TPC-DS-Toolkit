@@ -199,6 +199,110 @@ function copy_tpc() {
   cp ${TPC_DS_DIR}/00_compile_tpcds/tools/tpcds.idx ${TPC_DS_DIR}/*_gen_data/
 }
 
+################################################################################
+####  SynxDB Cloud Data Generation Functions  ##################################
+################################################################################
+
+function get_count_generate_data_synxdb() {
+  # Count running dsdgen processes across all segment pods
+  local count=0
+  local pods=$(get_segment_pods)
+
+  for pod in ${pods}; do
+    local next_count=$(kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
+      bash -c "ps -ef | grep dsdgen | grep -v grep | wc -l" 2>/dev/null || echo "0")
+
+    # Check if it's a valid number
+    if [[ "${next_count}" =~ ^[0-9]+$ ]]; then
+      count=$((count + next_count))
+    fi
+  done
+
+  echo "${count}"
+}
+
+function kill_orphaned_data_gen_synxdb() {
+  if [ "${LOG_DEBUG}" == "true" ]; then
+    log_time "Kill any orphaned dsdgen processes on segment pods"
+  fi
+  local pods=$(get_segment_pods)
+
+  for pod in ${pods}; do
+    kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
+      bash -c "pkill dsdgen 2>/dev/null || true" &
+  done
+  wait
+}
+
+function copy_binaries_to_segments_synxdb() {
+  log_time "Copying dsdgen binaries to segment pods"
+  local pods=$(get_segment_pods)
+  local data_path="${SYNXDB_DATA_PATH}/${GEN_PATH_NAME}"
+
+  for pod in ${pods}; do
+    # Create directory and copy files
+    kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
+      bash -c "mkdir -p ${data_path}" &
+  done
+  wait
+
+  for pod in ${pods}; do
+    kubectl cp "${TPC_DS_DIR}/01_gen_data/generate_dsdata.sh" \
+      "${SYNXDB_NAMESPACE}/${pod}:${data_path}/generate_dsdata.sh" -c segment &
+    kubectl cp "${TPC_DS_DIR}/00_compile_tpcds/tools/dsdgen" \
+      "${SYNXDB_NAMESPACE}/${pod}:${data_path}/dsdgen" -c segment &
+    kubectl cp "${TPC_DS_DIR}/00_compile_tpcds/tools/tpcds.idx" \
+      "${SYNXDB_NAMESPACE}/${pod}:${data_path}/tpcds.idx" -c segment &
+  done
+  wait
+
+  # Make dsdgen executable
+  for pod in ${pods}; do
+    kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
+      chmod +x "${data_path}/dsdgen" "${data_path}/generate_dsdata.sh" &
+  done
+  wait
+}
+
+function gen_data_synxdb() {
+  local pods=$(get_segment_pods)
+  local num_segments=$(echo "${pods}" | wc -w)
+  local data_path="${SYNXDB_DATA_PATH}/${GEN_PATH_NAME}"
+
+  # Calculate total parallel processes (segments * parallel per segment)
+  PARALLEL=$((num_segments * GEN_DATA_PARALLEL))
+
+  if [ "${LOG_DEBUG}" == "true" ]; then
+    log_time "Number of segment pods: ${num_segments}"
+    log_time "Parallel processes per segment: ${GEN_DATA_PARALLEL}"
+    log_time "Total parallel processes: ${PARALLEL}"
+  fi
+
+  # Clean up and prepare data generation folders on each segment
+  log_time "Preparing data generation directories on segment pods"
+  for pod in ${pods}; do
+    kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
+      bash -c "rm -rf ${data_path}/[0-9]* ${data_path}/logs; mkdir -p ${data_path}/logs" &
+  done
+  wait
+
+  # Start data generation on each segment pod
+  log_time "Starting data generation on ${num_segments} segment pods"
+  CHILD=1
+  for pod in ${pods}; do
+    for ((j=1; j<=GEN_DATA_PARALLEL; j++)); do
+      GEN_DATA_SUBPATH="${data_path}/${CHILD}"
+      if [ "${LOG_DEBUG}" == "true" ]; then
+        log_time "kubectl exec ${pod}: generate_dsdata.sh ${GEN_DATA_SCALE} ${CHILD} ${PARALLEL} ${GEN_DATA_SUBPATH} ${RNGSEED}"
+      fi
+      kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
+        bash -c "cd ${data_path} && nohup ./generate_dsdata.sh ${GEN_DATA_SCALE} ${CHILD} ${PARALLEL} ${GEN_DATA_SUBPATH} ${RNGSEED} > ${data_path}/logs/tpcds.generate.data.${CHILD}.log 2>&1 &" &
+      CHILD=$((CHILD + 1))
+    done
+  done
+  wait
+}
+
 step="gen_data"
 
 log_time "Step ${step} started"
@@ -216,7 +320,32 @@ if [ "${GEN_NEW_DATA}" == "true" ]; then
   copy_tpc
   SECONDS=0
 
-  if [ "${RUN_MODEL}" != "local" ]; then      
+  if [ "${RUN_MODEL}" == "synxdb-cloud" ]; then
+    # SynxDB Cloud mode: generate data on segment pods via kubectl
+    if [ -z "${SYNXDB_NAMESPACE}" ]; then
+      log_time "ERROR: SYNXDB_NAMESPACE must be set for synxdb-cloud mode"
+      exit 1
+    fi
+
+    kill_orphaned_data_gen_synxdb
+    copy_binaries_to_segments_synxdb
+    gen_data_synxdb
+
+    log_time "Now generating data on segment pods...This may take a while."
+    count=${PARALLEL}
+    seconds=0
+    echo -ne "Generating data duration: "
+    while [ "$count" -gt "0" ]; do
+      printf "\rGenerating data duration: ${seconds} second(s)"
+      start_time=$(date +%s)
+      sleep 5
+      count=$(get_count_generate_data_synxdb)
+      end_time=$(date +%s)
+      command_duration=$((end_time - start_time))
+      seconds=$((seconds + command_duration))
+    done
+
+  elif [ "${RUN_MODEL}" != "local" ]; then
     # Split CUSTOM_GEN_PATH into array of paths
     IFS=' ' read -ra GEN_PATHS <<< "${CUSTOM_GEN_PATH}"
     TOTAL_PATHS=${#GEN_PATHS[@]}

@@ -137,8 +137,24 @@ if [ "${DROP_EXISTING_TABLES}" == "true" ]; then
       export table_name
       counter=0
       flag=10
-     
-      if [ "${RUN_MODEL}" == "remote" ]; then
+
+      if [ "${RUN_MODEL}" == "synxdb-cloud" ]; then
+        # SynxDB Cloud mode: use segment pod hostnames for gpfdist locations
+        local pods=$(get_segment_pods)
+        local data_path="${SYNXDB_DATA_PATH}/${GEN_PATH_NAME}"
+
+        for pod in ${pods}; do
+          PORT=${SYNXDB_GPFDIST_PORT}
+          if [ "${counter}" -eq "0" ]; then
+            LOCATION="'"
+          else
+            LOCATION+="', '"
+          fi
+          LOCATION+="gpfdist://${pod}:${PORT}/[0-9]*/${table_name}_[0-9]*_[0-9]*.dat"
+          counter=$((counter + 1))
+        done
+        LOCATION+="'"
+      elif [ "${RUN_MODEL}" == "remote" ]; then
         EXT_HOST=$(hostname -I | awk '{print $1}')
         # Split CUSTOM_GEN_PATH into array of paths to support multiple directories
         IFS=' ' read -ra GEN_PATHS <<< "${CUSTOM_GEN_PATH}"

@@ -247,3 +247,137 @@ function create_hosts_file() {
   fi
 }
 export -f create_hosts_file
+
+################################################################################
+####  SynxDB Cloud Functions (kubectl-based)  ##################################
+################################################################################
+
+# Get segment pod names for the current warehouse
+# Returns: space-separated list of pod names (e.g., "wh-1-segment-0 wh-1-segment-1")
+function get_segment_pods() {
+  if [ -z "${SYNXDB_NAMESPACE}" ]; then
+    log_time "ERROR: SYNXDB_NAMESPACE is not set"
+    return 1
+  fi
+
+  local warehouse="${SYNXDB_WAREHOUSE:-wh-1}"
+  kubectl get pods -n "${SYNXDB_NAMESPACE}" \
+    -l "enterprise.dbaas/component=warehouse,enterprise.dbaas/name=${warehouse}" \
+    -o jsonpath='{.items[*].metadata.name}' 2>/dev/null
+}
+export -f get_segment_pods
+
+# Get the number of segment pods
+function get_segment_count() {
+  local pods=$(get_segment_pods)
+  echo "${pods}" | wc -w | tr -d ' '
+}
+export -f get_segment_count
+
+# Execute a command on a specific segment pod
+# Usage: kubectl_exec_segment <pod_name> <command>
+function kubectl_exec_segment() {
+  local pod_name=$1
+  shift
+  local cmd="$@"
+
+  if [ -z "${SYNXDB_NAMESPACE}" ]; then
+    log_time "ERROR: SYNXDB_NAMESPACE is not set"
+    return 1
+  fi
+
+  kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod_name}" -c segment -- \
+    bash -c "source /usr/local/elastic-database/cluster_env.sh && ${cmd}"
+}
+export -f kubectl_exec_segment
+
+# Execute a command on all segment pods in parallel
+# Usage: kubectl_exec_all_segments <command>
+function kubectl_exec_all_segments() {
+  local cmd="$@"
+  local pods=$(get_segment_pods)
+
+  for pod in ${pods}; do
+    kubectl_exec_segment "${pod}" "${cmd}" &
+  done
+  wait
+}
+export -f kubectl_exec_all_segments
+
+# Copy a file to a specific segment pod
+# Usage: kubectl_cp_to_segment <local_file> <pod_name> <remote_path>
+function kubectl_cp_to_segment() {
+  local local_file=$1
+  local pod_name=$2
+  local remote_path=$3
+
+  if [ -z "${SYNXDB_NAMESPACE}" ]; then
+    log_time "ERROR: SYNXDB_NAMESPACE is not set"
+    return 1
+  fi
+
+  kubectl cp "${local_file}" "${SYNXDB_NAMESPACE}/${pod_name}:${remote_path}" -c segment
+}
+export -f kubectl_cp_to_segment
+
+# Copy a file to all segment pods in parallel
+# Usage: kubectl_cp_to_all_segments <local_file> <remote_path>
+function kubectl_cp_to_all_segments() {
+  local local_file=$1
+  local remote_path=$2
+  local pods=$(get_segment_pods)
+
+  for pod in ${pods}; do
+    kubectl_cp_to_segment "${local_file}" "${pod}" "${remote_path}" &
+  done
+  wait
+}
+export -f kubectl_cp_to_all_segments
+
+# Create segment hosts file for synxdb-cloud mode
+# Creates file with segment pod names
+function create_synxdb_hosts_file() {
+  local pods=$(get_segment_pods)
+  echo "${pods}" | tr ' ' '\n' > ${TPC_DS_DIR}/segment_hosts.txt
+
+  if [ "${LOG_DEBUG}" == "true" ]; then
+    log_time "Created segment hosts file with $(wc -l < ${TPC_DS_DIR}/segment_hosts.txt) segments"
+  fi
+}
+export -f create_synxdb_hosts_file
+
+# Start gpfdist on a specific segment pod
+# Usage: start_gpfdist_on_segment <pod_name> <port> <data_path>
+function start_gpfdist_on_segment() {
+  local pod_name=$1
+  local port=$2
+  local data_path=$3
+
+  kubectl_exec_segment "${pod_name}" \
+    "pkill -f 'gpfdist.*${data_path}' 2>/dev/null || true; \
+     mkdir -p ${data_path}/logs; \
+     nohup gpfdist -p ${port} -d ${data_path} > ${data_path}/logs/gpfdist.${port}.log 2>&1 &"
+}
+export -f start_gpfdist_on_segment
+
+# Stop gpfdist on a specific segment pod
+# Usage: stop_gpfdist_on_segment <pod_name> <data_path_pattern>
+function stop_gpfdist_on_segment() {
+  local pod_name=$1
+  local data_path_pattern=$2
+
+  kubectl_exec_segment "${pod_name}" "pkill -f 'gpfdist.*${data_path_pattern}' 2>/dev/null || true"
+}
+export -f stop_gpfdist_on_segment
+
+# Stop gpfdist on all segment pods
+function stop_gpfdist_all_segments() {
+  local data_path_pattern=$1
+  local pods=$(get_segment_pods)
+
+  for pod in ${pods}; do
+    stop_gpfdist_on_segment "${pod}" "${data_path_pattern}" &
+  done
+  wait
+}
+export -f stop_gpfdist_all_segments
