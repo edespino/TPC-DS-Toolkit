@@ -110,11 +110,11 @@ fi
 
 log_time "Running TPC-DS in ${RUN_MODEL} mode for ${DB_VERSION}."
 
-if [ "${RUN_MODEL}" != "cloud" ]; then
+if [ "${RUN_MODEL}" != "cloud" ] && [ "${RUN_MODEL}" != "synxdb-cloud" ]; then
   source_bashrc
 fi
 
-if [ "${RUN_MODEL}" != "local" ]; then
+if [ "${RUN_MODEL}" != "local" ] && [ "${RUN_MODEL}" != "synxdb-cloud" ]; then
   export CUSTOM_GEN_PATH="$(echo "${CUSTOM_GEN_PATH}" | tr '[:upper:]' '[:lower:]')"
 
   IFS=' ' read -ra GEN_PATHS <<< "${CUSTOM_GEN_PATH}"

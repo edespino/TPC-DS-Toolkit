@@ -1,5 +1,7 @@
 # SynxDB Cloud options (set warehouse context for all psql connections)
 export PGOPTIONS="${PGOPTIONS:--c warehouse=wh-1}"
+## GPHOME for SynxDB Cloud (used by gpfdist and other utilities)
+export GPHOME="${GPHOME:-/usr/local/elastic-database}"
 
 ## SynxDB Cloud gpfdist mode settings (only used when RUN_MODEL="synxdb-cloud")
 ## Kubernetes namespace where warehouse segments are running

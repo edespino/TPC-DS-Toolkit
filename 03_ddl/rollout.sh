@@ -140,8 +140,8 @@ if [ "${DROP_EXISTING_TABLES}" == "true" ]; then
 
       if [ "${RUN_MODEL}" == "synxdb-cloud" ]; then
         # SynxDB Cloud mode: use segment pod hostnames for gpfdist locations
-        local pods=$(get_segment_pods)
-        local data_path="${SYNXDB_DATA_PATH}/${GEN_PATH_NAME}"
+        pods=$(get_segment_pods)
+        data_path="${SYNXDB_DATA_PATH}/${GEN_PATH_NAME}"
 
         for pod in ${pods}; do
           PORT=${SYNXDB_GPFDIST_PORT}
