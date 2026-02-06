@@ -98,13 +98,12 @@ function start_gpfdist_synxdb() {
       log_time "Starting gpfdist on ${pod}:${port} serving ${data_path}"
     fi
     kubectl exec -n "${SYNXDB_NAMESPACE}" "${pod}" -c segment -- \
-      bash -c "source /usr/local/elastic-database/cluster_env.sh && \
+      bash -c "source /usr/local/elastic-database/cloudberry-env.sh && \
                pkill -f 'gpfdist.*${data_path}' 2>/dev/null || true; \
                mkdir -p ${data_path}/logs; \
-               nohup gpfdist -p ${port} -d ${data_path} > ${data_path}/logs/gpfdist.${port}.log 2>&1 &" &
+               exec gpfdist -p ${port} -d ${data_path} > ${data_path}/logs/gpfdist.${port}.log 2>&1" &
   done
-  wait
-  sleep 2  # Allow gpfdist processes to start
+  sleep 3  # Allow gpfdist processes to start (kubectl exec sessions stay alive in background)
 }
 
 function stop_gpfdist_synxdb() {
