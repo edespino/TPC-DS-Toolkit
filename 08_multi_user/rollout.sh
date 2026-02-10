@@ -126,10 +126,34 @@ done
 
 log_time "Now executing ${MULTI_USER_COUNT} multi-user queries. This may take a while."
 seconds=0
-echo -n "Multi-user query duration: "
 running_jobs_count=${MULTI_USER_COUNT}
 while [ ${running_jobs_count} -gt 0 ]; do
-  printf "\rMulti-user query duration: ${seconds} second(s)"
+  progress=""
+  total_done=0
+  total_expected=$((MULTI_USER_COUNT * 99))
+  for s in $(seq 1 ${MULTI_USER_COUNT}); do
+    logf="${TPC_DS_DIR}/log/rollout_testing_${s}.log"
+    if [ -f "$logf" ]; then
+      done_count=$(wc -l < "$logf")
+    else
+      done_count=0
+    fi
+    total_done=$((total_done + done_count))
+    if [ -f "${TPC_DS_DIR}/log/end_testing_${s}.log" ]; then
+      progress="${progress} S${s}:done"
+    else
+      progress="${progress} S${s}:${done_count}/99"
+    fi
+  done
+  if [ ${seconds} -ge 3600 ]; then
+    elapsed="$((seconds / 3600))h$((seconds % 3600 / 60))m$((seconds % 60))s"
+  elif [ ${seconds} -ge 60 ]; then
+    elapsed="$((seconds / 60))m$((seconds % 60))s"
+  else
+    elapsed="${seconds}s"
+  fi
+  pct=$((total_done * 100 / total_expected))
+  printf "Multi-user: %s | %d/%d queries (%d%%) |%s\n" "${elapsed}" ${total_done} ${total_expected} ${pct} "${progress}"
   start_time=$(date +%s)
   sleep 15
   running_jobs_count=$(get_running_jobs_count)
@@ -137,7 +161,6 @@ while [ ${running_jobs_count} -gt 0 ]; do
   command_duration=$((end_time - start_time))
   seconds=$((seconds + command_duration))
 done
-echo ""
 log_time "Multi-user queries completed."
 
 file_count=$(get_file_count)
